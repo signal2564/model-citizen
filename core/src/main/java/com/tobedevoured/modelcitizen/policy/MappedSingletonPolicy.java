@@ -18,6 +18,8 @@ package com.tobedevoured.modelcitizen.policy;
  * limitations under the License.
  */
 
+import com.tobedevoured.modelcitizen.annotation.Blueprint;
+import com.tobedevoured.modelcitizen.annotation.Mapped;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,48 +32,59 @@ import com.tobedevoured.modelcitizen.field.ModelField;
 import com.tobedevoured.modelcitizen.template.BlueprintTemplateException;
 
 /**
- * Enforce a @Mapped field in a @Blueprint as a Singleton {@link Policy}
- * for creating models. 
- * 
- * If constructed with a Class, the first attempt to set @Mapped instance of Class
- * will use {@link ModelFactory#createModel(Class, false)} to create singleton to use 
- * for all instances of Class in registered {@link Blueprint}s. Note: 
- * the {@link ModelFactory#createModel(Class,false)} will not run any Policy 
+ * Enforce a {@link Mapped} field in a {@link Blueprint} as a Singleton {@link Policy}
+ * for creating models.
+ *
+ * If constructed with a Class, the first attempt to set {@link Mapped} instance of Class
+ * will use {@link ModelFactory#createModel(Class, boolean)}(with second argument set to false) to create singleton to use
+ * for all instances of Class in registered {@link Blueprint}s. Note:
+ * the {@link ModelFactory#createModel(Class, boolean)}(with second argument set to false) will not run any Policy
  * for the creation.
- * 
+ *
  * If constructed with a Model, the Model will be used for all @Mapped instances of
  * Model's class in registered {@link Blueprint}s.
- * 
+ *
  */
 public class MappedSingletonPolicy implements FieldPolicy {
 
 	private Logger logger = LoggerFactory.getLogger( this.getClass() );
-	
+
 	private Class singletonClass;
 	private Object singleton;
+	private String blueprintName;
 
 	/**
 	 * Create new Singleton with from a registered Class.
- 	 *	 
-	 * @param modelClass Class
+ 	 *
+	 * @param singletonClass Class
 	 */
-	public MappedSingletonPolicy( Class singletonClass ) {
+	public MappedSingletonPolicy(String blueprintName, Class singletonClass) {
 		super();
 		this.singletonClass = singletonClass;
+		this.blueprintName = blueprintName;
 	}
-	
+
+	public MappedSingletonPolicy(Class singletonClass) {
+		this(ModelFactory.DEFAULT_BLUEPRINT_NAME, singletonClass);
+	}
+
 	/**
-	 * Create new instance with Model. 
-	 * 
+	 * Create new instance with Model.
+	 *
 	 * @param model Object
 	 */
-	public MappedSingletonPolicy( Object model ) {
+	public MappedSingletonPolicy(String blueprintName, Object model) {
 		super();
-		
+
+		this.blueprintName = blueprintName;
 		this.singleton = model;
 		this.singletonClass = this.singleton.getClass();
 	}
-	
+
+	public MappedSingletonPolicy(Object model) {
+		this(ModelFactory.DEFAULT_BLUEPRINT_NAME, model);
+	}
+
 	public Object getSingleton() {
 		return singleton;
 	}
@@ -81,9 +94,9 @@ public class MappedSingletonPolicy implements FieldPolicy {
 	}
 
 	public Command process(ModelFactory modelFactory, Erector erector, ModelField modelField, Object model) throws PolicyException {
-		
+
 		logger.debug( "processing {} for {}", modelField, model );
-		
+
 		// If Model has not be set, create a new one from ModelFactory
 		if ( modelField instanceof MappedField ) {
 			if ( this.getSingleton() == null ) {
@@ -94,7 +107,7 @@ public class MappedSingletonPolicy implements FieldPolicy {
 					throw new PolicyException( e );
 				}
 			}
-			
+
 			// Set Singleton into model
 			try {
 				erector.getTemplate().set( model, modelField.getName(), this.getSingleton() );
@@ -102,11 +115,19 @@ public class MappedSingletonPolicy implements FieldPolicy {
 				throw new PolicyException(e);
 			}
 		}
-		
+
 		return Command.SKIP_INJECTION;
 	}
 
 	public Class getTarget() {
 		return singletonClass;
+	}
+
+	public String getBlueprintName() {
+		return blueprintName;
+	}
+
+	public void setBlueprintName(String blueprintName) {
+		this.blueprintName = blueprintName;
 	}
 }

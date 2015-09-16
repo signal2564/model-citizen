@@ -47,6 +47,8 @@ public class NullableTest {
         modelFactory.registerBlueprint(driverBlueprint);
         modelFactory.registerBlueprint(wheelBlueprint);
         modelFactory.registerBlueprint(optionBlueprint);
+        modelFactory.registerBlueprint(optionBlueprint);
+        modelFactory.registerBlueprint("different", optionBlueprint);
     }
 
     @Test

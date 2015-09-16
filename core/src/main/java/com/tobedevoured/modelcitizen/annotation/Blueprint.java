@@ -18,12 +18,13 @@ package com.tobedevoured.modelcitizen.annotation;
  * limitations under the License.
  */
 
+import com.tobedevoured.modelcitizen.ModelFactory;
+import com.tobedevoured.modelcitizen.template.JavaBeanTemplate;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import com.tobedevoured.modelcitizen.template.JavaBeanTemplate;
-import com.tobedevoured.modelcitizen.template.BlueprintTemplate;
 
 /**
  * Class Blueprint containing annotated fields used by ModelFactory to
@@ -32,6 +33,7 @@ import com.tobedevoured.modelcitizen.template.BlueprintTemplate;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Blueprint {
-	Class value();
-	Class template() default JavaBeanTemplate.class;
+    Class value();
+    String alias() default ModelFactory.DEFAULT_BLUEPRINT_NAME;
+    Class template() default JavaBeanTemplate.class;
 }

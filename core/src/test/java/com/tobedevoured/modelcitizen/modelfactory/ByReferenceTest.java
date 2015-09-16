@@ -49,6 +49,7 @@ public class ByReferenceTest {
         modelFactory.registerBlueprint(driverBlueprint);
         modelFactory.registerBlueprint(userBlueprint);
         modelFactory.registerBlueprint(optionBlueprint);
+        modelFactory.registerBlueprint("different", optionBlueprint);
     }
 
     @Test

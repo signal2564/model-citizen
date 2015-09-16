@@ -18,9 +18,14 @@ package com.tobedevoured.modelcitizen.field;
  * limitations under the License.
  */
 
+import com.tobedevoured.modelcitizen.annotation.Blueprint;
+import com.tobedevoured.modelcitizen.annotation.MappedList;
+
+import java.util.List;
+
 /**
  * A {@link MappedList} annotated Field in the {@link Blueprint} that is mapped
- * to a {@link List} comprised of Models with a registered {@Blueprint}.
+ * to a {@link List} comprised of Models with a registered {@link Blueprint}.
  *
  * @author Michael Guymon
  */
@@ -51,7 +56,6 @@ public class MappedSetField extends ModelField {
         this.targetSet = targetSet;
     }
 
-
     public boolean isIgnoreEmpty() {
         return ignoreEmpty;
     }
@@ -59,7 +63,6 @@ public class MappedSetField extends ModelField {
     public void setIgnoreEmpty(boolean ignoreEmpty) {
         this.ignoreEmpty = ignoreEmpty;
     }
-
 
     @Override
     public boolean equals(Object o) {

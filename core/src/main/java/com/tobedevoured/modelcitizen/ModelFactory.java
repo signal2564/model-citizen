@@ -18,39 +18,31 @@ package com.tobedevoured.modelcitizen;
  * limitations under the License.
  */
 
-import java.io.IOException;
-import java.lang.reflect.Field;
-import java.util.*;
-
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.metapossum.utils.scanner.reflect.ClassesInPackageScanner;
-import java.lang.reflect.InvocationTargetException;
-import org.apache.commons.lang.reflect.ConstructorUtils;
-import com.tobedevoured.modelcitizen.annotation.Blueprint;
-import com.tobedevoured.modelcitizen.annotation.Default;
-import com.tobedevoured.modelcitizen.annotation.Mapped;
-import com.tobedevoured.modelcitizen.annotation.MappedList;
-import com.tobedevoured.modelcitizen.annotation.MappedSet;
-import com.tobedevoured.modelcitizen.annotation.NotSet;
-import com.tobedevoured.modelcitizen.annotation.Nullable;
+import com.tobedevoured.modelcitizen.annotation.*;
+import com.tobedevoured.modelcitizen.callback.AfterCreateCallback;
+import com.tobedevoured.modelcitizen.callback.Callback;
+import com.tobedevoured.modelcitizen.callback.ConstructorCallback;
+import com.tobedevoured.modelcitizen.callback.internal.Constructable;
+import com.tobedevoured.modelcitizen.callback.internal.Getable;
 import com.tobedevoured.modelcitizen.erector.Command;
+import com.tobedevoured.modelcitizen.field.*;
 import com.tobedevoured.modelcitizen.policy.BlueprintPolicy;
 import com.tobedevoured.modelcitizen.policy.FieldPolicy;
 import com.tobedevoured.modelcitizen.policy.Policy;
 import com.tobedevoured.modelcitizen.policy.PolicyException;
 import com.tobedevoured.modelcitizen.template.BlueprintTemplate;
 import com.tobedevoured.modelcitizen.template.BlueprintTemplateException;
-import com.tobedevoured.modelcitizen.template.JavaBeanTemplate;
-import com.tobedevoured.modelcitizen.callback.AfterCreateCallback;
-import com.tobedevoured.modelcitizen.callback.Callback;
-import com.tobedevoured.modelcitizen.callback.ConstructorCallback;
-import com.tobedevoured.modelcitizen.callback.internal.Constructable;
-import com.tobedevoured.modelcitizen.callback.internal.Getable;
-import com.tobedevoured.modelcitizen.field.*;
+import com.tobedevoured.modelcitizen.util.Pair;
+import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang.reflect.ConstructorUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.util.*;
 
 /**
  * ModelFactory for generating Models. A Model's {@link Blueprint} is registered
@@ -59,33 +51,37 @@ import com.tobedevoured.modelcitizen.field.*;
  */
 public class ModelFactory {
 
+    public static final String DEFAULT_BLUEPRINT_NAME = "default";
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    private List<Object> blueprints;
-    private Map<Class, Erector> erectors = new HashMap<Class, Erector>();
+    private List<Object> blueprints = new ArrayList<Object>();
+    private Map<Pair<String, Class>, Erector> erectors = new HashMap<Pair<String, Class>, Erector>();
     private Map<Class, List<FieldPolicy>> fieldPolicies = new HashMap<Class, List<FieldPolicy>>();
     private Map<Class, List<BlueprintPolicy>> blueprintPolicies = new HashMap<Class, List<BlueprintPolicy>>();
 
+
     /**
-     * Create new instance
+     * See {@link ModelFactory#addPolicy(String, Policy)} for details.
+     * Default blueprint name is "{@value ModelFactory#DEFAULT_BLUEPRINT_NAME}"
      */
-    public ModelFactory() {
-        blueprints = new ArrayList<Object>();
-        erectors = new HashMap<Class, Erector>();
+    public void addPolicy(Policy policy) throws PolicyException {
+        addPolicy(DEFAULT_BLUEPRINT_NAME, policy);
     }
 
     /**
      * Add Policy to ModelFactory
      *
+     * @param blueprintName name for identify template for class
      * @param policy {@link FieldPolicy} or {@link BlueprintPolicy}
      * @throws PolicyException
      */
-    public void addPolicy(Policy policy) throws PolicyException {
+    public void addPolicy(String blueprintName, Policy policy) throws PolicyException {
 
         // Add BlueprintPolicy
         if (policy instanceof BlueprintPolicy) {
-            if (erectors.get(policy.getTarget()) == null) {
-                throw new PolicyException("Blueprint does not exist for BlueprintPolicy target: " + policy.getTarget());
+            if (erectors.get(Pair.of(blueprintName, policy.getTarget())) == null) {
+                throw new PolicyException("Blueprint does not exist for BlueprintPolicy target: " + policy.getTarget()
+                        + " with alias " + blueprintName);
             }
 
             List<BlueprintPolicy> policies = blueprintPolicies.get(policy.getTarget());
@@ -95,7 +91,7 @@ public class ModelFactory {
 
             policies.add((BlueprintPolicy) policy);
 
-            logger.info("Setting BlueprintPolicy {} for {}", policy, policy.getTarget());
+            logger.info("Setting BlueprintPolicy {} for key ({}, {})", policy, blueprintName, policy.getTarget());
 
             blueprintPolicies.put(policy.getTarget(), policies);
 
@@ -103,8 +99,9 @@ public class ModelFactory {
         } else if (policy instanceof FieldPolicy) {
 
             // XXX: force FieldPolicy's to be mapped to a blueprint? Limits their scope, but enables validation
-            if (erectors.get(policy.getTarget()) == null) {
-                throw new PolicyException("Blueprint does not exist for FieldPolicy target: " + policy.getTarget());
+            if (erectors.get(Pair.of(blueprintName, policy.getTarget())) == null) {
+                throw new PolicyException("Blueprint does not exist for FieldPolicy target: " + policy.getTarget()
+                        + " with alias " + blueprintName);
             }
 
             List<FieldPolicy> policies = fieldPolicies.get(policy.getTarget());
@@ -114,7 +111,7 @@ public class ModelFactory {
 
             policies.add((FieldPolicy) policy);
 
-            logger.info("Setting FieldPolicy {} for {}", policy, policy.getTarget());
+            logger.info("Setting FieldPolicy {} for key ({}, {})", policy, blueprintName, policy.getTarget());
 
             fieldPolicies.put(policy.getTarget(), policies);
         }
@@ -154,8 +151,6 @@ public class ModelFactory {
                 registerBlueprint((Class) blueprint);
             } else if (blueprint instanceof String) {
                 registerBlueprint((String) blueprint);
-            } else if (blueprint instanceof String) {
-                registerBlueprint(blueprint);
             } else {
                 throw new RegisterBlueprintException("Only supports List comprised of Class<Blueprint>, Blueprint, or String className");
             }
@@ -163,7 +158,10 @@ public class ModelFactory {
     }
 
     /**
-     * Register a {@link Blueprint} from a String Class name
+     * Register a {@link Blueprint} from string with fully qualified class name.
+     * Determining alias from class annotation.
+     *
+     * @param className fully qualified class name of blueprint
      */
     public void registerBlueprint(String className) throws RegisterBlueprintException {
         try {
@@ -174,13 +172,40 @@ public class ModelFactory {
     }
 
     /**
+     * Register a {@link Blueprint} from string with fully qualified class name
+     *
+     * @param blueprintName name to identify blueprint for className
+     * @param className fully qualified class name of blueprint
+     */
+    public void registerBlueprint(String blueprintName, String className) throws RegisterBlueprintException {
+        try {
+            registerBlueprint(blueprintName, Class.forName(className));
+        } catch (ClassNotFoundException e) {
+            throw new RegisterBlueprintException(e);
+        }
+    }
+
+    /**
+     * Register a {@link Blueprint} from Class. Blueprint alias will be determined from class annotation
+     * @param clazz Blueprint class
+     */
+    public void registerBlueprint(Class<?> clazz) throws RegisterBlueprintException {
+        Blueprint annotation = clazz.getAnnotation(Blueprint.class);
+        if (annotation == null)
+            throw new RegisterBlueprintException("Blueprint class not annotated by @Blueprint: " + clazz);
+
+        registerBlueprint(annotation.alias(), clazz);
+    }
+
+    /**
      * Register a {@link Blueprint} from Class
      *
+     * @param blueprintName name for identified template for class
      * @param clazz Blueprint class
      * @throws RegisterBlueprintException
      */
-    public void registerBlueprint(Class clazz) throws RegisterBlueprintException {
-        Object blueprint = null;
+    public void registerBlueprint(String blueprintName, Class clazz) throws RegisterBlueprintException {
+        Object blueprint;
 
         try {
             blueprint = clazz.newInstance();
@@ -190,17 +215,30 @@ public class ModelFactory {
             throw new RegisterBlueprintException(e);
         }
 
-        registerBlueprint(blueprint);
+        registerBlueprint(blueprintName, blueprint);
+    }
+
+    /**
+     * Register {@link Blueprint} from instance. Determining alias for blueprint form class annotation
+     *
+     * @param blueprint {@link Blueprint}
+     */
+    public void registerBlueprint(Object blueprint) throws RegisterBlueprintException {
+        Blueprint annotation = blueprint.getClass().getAnnotation(Blueprint.class);
+        if (annotation == null)
+            throw new RegisterBlueprintException("Blueprint class not annotated by @Blueprint: " + blueprint);
+
+        registerBlueprint(annotation.alias(), blueprint);
     }
 
     /**
      * Register {@link Blueprint} from instance.
      *
+     * @param blueprintName name for identified template for class
      * @param blueprint {@link Blueprint}
      * @throws RegisterBlueprintException
      */
-    public void registerBlueprint(Object blueprint) throws RegisterBlueprintException {
-
+    public void registerBlueprint(String blueprintName, Object blueprint) throws RegisterBlueprintException {
         Blueprint blueprintAnnotation = blueprint.getClass().getAnnotation(Blueprint.class);
         if (blueprintAnnotation == null) {
             throw new RegisterBlueprintException("Blueprint class not annotated by @Blueprint: " + blueprint);
@@ -209,7 +247,7 @@ public class ModelFactory {
 
         List<ModelField> modelFields = new ArrayList<ModelField>();
 
-        logger.debug("Registering {} blueprint for {}", blueprint.getClass(), target);
+        logger.debug("Registering {} blueprint for key ({}, {})", blueprint.getClass(), blueprintName, target);
 
         Constructable newInstance = null;
 
@@ -222,8 +260,8 @@ public class ModelFactory {
             field.setAccessible(true);
 
             // Register ConstructorCallback field
-            if ( field.getType().equals(ConstructorCallback.class) || field.getType().equals(com.tobedevoured.modelcitizen.callback.ConstructorCallback.class)) {
-                Object fieldVal = null;
+            if (field.getType().equals(ConstructorCallback.class) || field.getType().equals(com.tobedevoured.modelcitizen.callback.ConstructorCallback.class)) {
+                Object fieldVal;
                 try {
                     fieldVal = field.get(blueprint);
                 } catch (IllegalArgumentException e) {
@@ -244,9 +282,9 @@ public class ModelFactory {
             }
 
             // Register AfterCreateCallback field
-            if ( field.getType().equals(AfterCreateCallback.class) ) {
+            if (field.getType().equals(AfterCreateCallback.class)) {
 
-                Object fieldVal = null;
+                Object fieldVal;
                 try {
                     fieldVal = field.get(blueprint);
                 } catch (IllegalArgumentException e) {
@@ -257,7 +295,7 @@ public class ModelFactory {
 
                 if (fieldVal instanceof AfterCreateCallback) {
                     logger.debug("Registering AfterCreateCallback for {}", blueprint.getClass());
-                    afterCreateCallbacks.add((AfterCreateCallback)fieldVal);
+                    afterCreateCallbacks.add((AfterCreateCallback) fieldVal);
                 } else {
                     throw new RegisterBlueprintException("Blueprint " + blueprint.getClass().getSimpleName() + " Field class for " + field.getName() + " is invalid AfterCreateCallback");
                 }
@@ -286,7 +324,7 @@ public class ModelFactory {
                 defaultField.setFieldClass(field.getType());
                 modelFields.add(defaultField);
 
-                logger.trace("  Setting default for {} to {} and forced {}", new Object[]{defaultField.getName(), defaultField.getValue(), defaultField.isForce()});
+                logger.trace("  Setting default for {} to {} and forced {}", defaultField.getName(), defaultField.getValue(), defaultField.isForce());
 
             }
 
@@ -325,6 +363,12 @@ public class ModelFactory {
                 listField.setIgnoreEmpty(mappedCollection.ignoreEmpty());
                 listField.setForce(mappedCollection.force());
 
+                String[] aliases = new String[mappedCollection.size()];
+                for (int i = 0; i < mappedCollection.size(); i++) {
+                    aliases[i] = mappedCollection.alias();
+                }
+                listField.setAliases(aliases);
+
                 // If @MappedList(target) not set, use Field's class
                 if (NotSet.class.equals(mappedCollection.target())) {
                     listField.setTarget(field.getType());
@@ -357,7 +401,7 @@ public class ModelFactory {
 
                 modelFields.add(listField);
 
-                logger.trace("  Setting mapped list for {} to {} as <{}> and forced {}", new Object[]{listField.getName(), listField.getFieldClass(), listField.getTarget(), listField.isForce()});
+                logger.trace("  Setting mapped list for {} to {} as <{}> and forced {}", listField.getName(), listField.getFieldClass(), listField.getTarget(), listField.isForce());
 
             }
 
@@ -406,25 +450,69 @@ public class ModelFactory {
 
                 modelFields.add(setField);
 
-                logger.trace("  Setting mapped set for {} to {} as <{}> and is forced {}", new Object[]{setField.getName(), setField.getFieldClass(), setField.getTarget(), setField.isForce()});
+                logger.trace("  Setting mapped set for {} to {} as <{}> and is forced {}", setField.getName(), setField.getFieldClass(), setField.getTarget(), setField.isForce());
+            }
 
+            MappedListByAliases listByAliases = field.getAnnotation(MappedListByAliases.class);
+            if (listByAliases != null) {
+                MappedListField listField = new MappedListField();
+                listField.setName(field.getName());
+                listField.setFieldClass(field.getType());
+                listField.setSize(listByAliases.aliases().length);
+                listField.setIgnoreEmpty(listByAliases.ignoreEmpty());
+                listField.setForce(listByAliases.force());
+                listField.setAliases(listByAliases.aliases());
+
+                // If @MappedList(target) not set, use Field's class
+                if (NotSet.class.equals(listByAliases.target())) {
+                    listField.setTarget(field.getType());
+
+                    // Use @MappedList(target) for MappedListField#target
+                } else {
+                    listField.setTarget(listByAliases.target());
+                }
+
+                // If @MappedList(targetList) not set, use ArrayList
+                if (NotSet.class.equals(listByAliases.targetList())) {
+                    listField.setTargetList(ArrayList.class);
+                } else {
+
+                    // Ensure that the targetList implements List
+                    boolean implementsList = false;
+                    for (Class interf : listByAliases.targetList().getInterfaces()) {
+                        if (List.class.equals(interf)) {
+                            implementsList = true;
+                            break;
+                        }
+                    }
+
+                    if (!implementsList) {
+                        throw new RegisterBlueprintException("@MappedList targetList must implement List for field " + field.getName());
+                    }
+
+                    listField.setTargetList(listByAliases.targetList());
+                }
+
+                modelFields.add(listField);
+
+                logger.trace("  Setting mapped list for {} to {} as <{}> and forced {}", listField.getName(), listField.getFieldClass(), listField.getTarget(), listField.isForce());
             }
         }
 
         blueprints.add(blueprint);
 
         Class templateClass = blueprintAnnotation.template();
-        BlueprintTemplate template = null;
+        BlueprintTemplate template;
         try {
-          template = (BlueprintTemplate)ConstructorUtils.invokeConstructor( templateClass, null );
+            template = (BlueprintTemplate) ConstructorUtils.invokeConstructor(templateClass, null);
         } catch (NoSuchMethodException e) {
-          throw new RegisterBlueprintException( e );
+            throw new RegisterBlueprintException(e);
         } catch (IllegalAccessException e) {
-          throw new RegisterBlueprintException( e );
+            throw new RegisterBlueprintException(e);
         } catch (InvocationTargetException e) {
-          throw new RegisterBlueprintException( e );
+            throw new RegisterBlueprintException(e);
         } catch (InstantiationException e) {
-          throw new RegisterBlueprintException( e );
+            throw new RegisterBlueprintException(e);
         }
 
         // Create Erector for this Blueprint
@@ -436,7 +524,15 @@ public class ModelFactory {
         erector.setNewInstance(newInstance);
         erector.setCallbacks("afterCreate", afterCreateCallbacks);
 
-        erectors.put(target, erector);
+        erectors.put(Pair.of(blueprintName, target), erector);
+    }
+
+    /**
+     * See {@link ModelFactory#createModel(String, Class, boolean)} for details.
+     * Default value for templateName is "{@value ModelFactory#DEFAULT_BLUEPRINT_NAME}"
+     */
+    public <T> T createModel(Class<T> clazz) throws CreateModelException {
+        return createModel(DEFAULT_BLUEPRINT_NAME, clazz, true);
     }
 
     /**
@@ -446,23 +542,32 @@ public class ModelFactory {
      * @return Model
      * @throws CreateModelException
      */
-    public <T> T createModel(Class<T> clazz) throws CreateModelException {
-        return createModel(clazz, true);
+    public <T> T createModel(String blueprintName, Class<T> clazz) throws CreateModelException {
+        return createModel(blueprintName, clazz, true);
+    }
+
+    /**
+     * See {@link ModelFactory#createModel(String, Class, boolean)} for details.
+     * Default value for templateName is {@value ModelFactory#DEFAULT_BLUEPRINT_NAME}
+     */
+    public <T> T createModel(Class<T> clazz, boolean withPolicies) throws CreateModelException {
+        return createModel(DEFAULT_BLUEPRINT_NAME, clazz, withPolicies);
     }
 
     /**
      * Create a Model for a registered {@link Blueprint}
      *
-     * @param clazz        Model class
-     * @param withPolicies boolean if Policies should be applied to the create
+     * @param blueprintName name for identified template for class
+     * @param clazz         Model class
+     * @param withPolicies  boolean if Policies should be applied to the create
      * @return Model
      * @throws CreateModelException
      */
-    public <T> T createModel(Class<T> clazz, boolean withPolicies) throws CreateModelException {
-        Erector erector = erectors.get(clazz);
+    public <T> T createModel(String blueprintName, Class<T> clazz, boolean withPolicies) throws CreateModelException {
+        Erector erector = erectors.get(Pair.of(blueprintName, (Class) clazz));
 
         if (erector == null) {
-            throw new CreateModelException("Unregistered class: " + clazz);
+            throw new CreateModelException("Unregistered alias '" + blueprintName + "' for class " + clazz);
         }
 
         return createModel(erector, null, withPolicies);
@@ -477,7 +582,23 @@ public class ModelFactory {
      * @throws CreateModelException
      */
     public <T> T createModel(T referenceModel) throws CreateModelException {
-        return createModel(referenceModel, true);
+        return createModel(DEFAULT_BLUEPRINT_NAME, referenceModel, true);
+    }
+
+    /**
+     * See {@link ModelFactory#createModel(String, T, boolean)} for details.
+     * Default value for templateName is {@value ModelFactory#DEFAULT_BLUEPRINT_NAME}
+     */
+    public <T> T createModel(String blueprintName, T referenceModel) throws CreateModelException {
+        return createModel(blueprintName, referenceModel, true);
+    }
+
+    /**
+     * See {@link ModelFactory#createModel(String, T, boolean)} for details.
+     * Default value for templateName is {@value ModelFactory#DEFAULT_BLUEPRINT_NAME}
+     */
+    public <T> T createModel(T referenceModel, boolean withPolicies) throws CreateModelException {
+        return createModel(DEFAULT_BLUEPRINT_NAME, referenceModel, withPolicies);
     }
 
     /**
@@ -490,11 +611,11 @@ public class ModelFactory {
      * @throws CreateModelException
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public <T> T createModel(T referenceModel, boolean withPolicies) throws CreateModelException {
-        Erector erector = erectors.get(referenceModel.getClass());
+    public <T> T createModel(String blueprintName, T referenceModel, boolean withPolicies) throws CreateModelException {
+        Erector erector = erectors.get(Pair.of(blueprintName, (Class) referenceModel.getClass()));
 
         if (erector == null) {
-            throw new CreateModelException("Unregistered class: " + referenceModel.getClass());
+            throw new CreateModelException("Unregistered alias '" + blueprintName + "' for class " + referenceModel.getClass());
         }
 
         return createModel(erector, referenceModel, withPolicies);
@@ -522,7 +643,7 @@ public class ModelFactory {
             throw new CreateModelException(e);
         }
 
-        logger.trace("Created model {} from {} based on {}", new Object[] { createdModel, erector, referenceModel });
+        logger.trace("Created model {} from {} based on {}", createdModel, erector, referenceModel);
 
         final T nonNullReferenceModel = referenceModel == null ? createdModel : referenceModel;
         erector.setReference(nonNullReferenceModel);
@@ -540,7 +661,7 @@ public class ModelFactory {
                         modelFieldCommands = policy.process(this, erector, createdModel);
 
                     } catch (PolicyException e) {
-                        new CreateModelException(e);
+                        throw new CreateModelException(e);
                     }
 
                     for (ModelField modelField : modelFieldCommands.keySet()) {
@@ -570,7 +691,7 @@ public class ModelFactory {
                                 erector.addCommand(modelField, command);
                             }
                         } catch (PolicyException e) {
-                            new CreateModelException(e);
+                            throw new CreateModelException(e);
                         }
                     }
                 }
@@ -660,12 +781,12 @@ public class ModelFactory {
                         // Inject models into List If list is null or force is true or it is an empty list that is ignored
                         if ((modelList == null || listField.isForce()) || (modelList.size() == 0 && !listField.isIgnoreEmpty())) {
                             for (int x = 0; x < listField.getSize(); x++) {
-                                ((List) value).add(this.createModel(listField.getTarget()));
+                                ((List) value).add(this.createModel(listField.getAliases()[x], listField.getTarget()));
                             }
 
                         } else {
-                            for (Object object : modelList) {
-                                ((List) value).add(this.createModel(object));
+                            for (int x = 0; x < modelList.size(); x++) {
+                                ((List) value).add(this.createModel(listField.getAliases()[x], modelList.get(x)));
                             }
                         }
                     }
@@ -749,9 +870,9 @@ public class ModelFactory {
     /**
      * Map of Class to their {@link Erector}.
      *
-     * @return {@link Map<Class, Erector>}
+     * @return {@link Map<Pair<String, Class>, Erector>}
      */
-    public Map<Class, Erector> getErectors() {
+    public Map<Pair<String, Class>, Erector> getErectors() {
         return erectors;
     }
 

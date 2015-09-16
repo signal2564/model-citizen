@@ -35,11 +35,20 @@ public class ForceTest {
 
     private ModelFactory modelFactory;
     private DriverBlueprint driverBlueprint = new DriverBlueprint();
+    private CarBlueprint carBlueprint = new CarBlueprint();
+    private CoolCarBlueprint coolCarBlueprint = new CoolCarBlueprint();
+    private BadCarBlueprint badCarBlueprint = new BadCarBlueprint();
+    private OptionBlueprint optionBlueprint = new OptionBlueprint();
 
     @Before
     public void setUp() throws RegisterBlueprintException {
         modelFactory = new ModelFactory();
         modelFactory.registerBlueprint(driverBlueprint);
+        modelFactory.registerBlueprint(carBlueprint);
+        modelFactory.registerBlueprint("cool", coolCarBlueprint);
+        modelFactory.registerBlueprint(badCarBlueprint);
+        modelFactory.registerBlueprint(optionBlueprint);
+        modelFactory.registerBlueprint("different", optionBlueprint);
     }
 
     @Test

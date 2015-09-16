@@ -18,6 +18,8 @@ package com.tobedevoured.modelcitizen.annotation;
  * limitations under the License.
  */
 
+import com.tobedevoured.modelcitizen.ModelFactory;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -34,7 +36,7 @@ public @interface MappedList {
      * Number of Models to be created by the ModelFactory and added to List, defaults to 1.
      * @return int
      */
-	int size() default 1;
+    int size() default 1;
 
     /**
      * The target Blueprint Class used to create Models.
@@ -61,4 +63,9 @@ public @interface MappedList {
      * @return boolean
      */
     boolean force() default false;
+
+    /**
+     * Alias of blueprint for all objects of the list.
+     */
+    String alias() default ModelFactory.DEFAULT_BLUEPRINT_NAME;
 }

@@ -27,6 +27,7 @@ import com.tobedevoured.modelcitizen.blueprint.OptionBlueprint;
 import com.tobedevoured.modelcitizen.blueprint.WheelBlueprint;
 import com.tobedevoured.modelcitizen.model.Car;
 import com.tobedevoured.modelcitizen.model.Wheel;
+import com.tobedevoured.modelcitizen.util.Pair;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -63,7 +64,7 @@ public class ConstructorCallbackTest {
     @Test
     public void testBlueprintConstructorOnlyTriggeredOncePerCreateModelInvocation() throws Exception {
         Erector erector = mock(Erector.class);
-        modelFactory.getErectors().put(Car.class, erector);
+        modelFactory.getErectors().put(Pair.of(ModelFactory.DEFAULT_BLUEPRINT_NAME, (Class) Car.class), erector);
         modelFactory.createModel(Car.class);
         verify(erector, times(1)).createNewInstance();
     }

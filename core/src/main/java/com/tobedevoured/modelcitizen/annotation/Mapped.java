@@ -18,6 +18,8 @@ package com.tobedevoured.modelcitizen.annotation;
  * limitations under the License.
  */
 
+import com.tobedevoured.modelcitizen.ModelFactory;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -34,5 +36,10 @@ public @interface Mapped {
      * Class ModelFactory creates, defaults to the field Class
      * @return Class
      */
-	Class target() default NotSet.class;
+    Class target() default NotSet.class;
+
+    /**
+     * Alias of blueprint for mapped object
+     */
+    String alias() default ModelFactory.DEFAULT_BLUEPRINT_NAME;
 }

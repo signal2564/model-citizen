@@ -1,5 +1,7 @@
 package com.tobedevoured.modelcitizen.model;
 
+import java.util.List;
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements. See the NOTICE file
@@ -22,6 +24,7 @@ public class Driver {
 
     private String name;
     private Integer age;
+    private List<Option> favoriteCars;
 
     public String getName() {
         return name;
@@ -37,5 +40,13 @@ public class Driver {
 
     public void setAge(Integer age) {
         this.age = age;
+    }
+
+    public List<Option> getFavoriteCars() {
+        return favoriteCars;
+    }
+
+    public void setFavoriteCars(List<Option> favoriteCars) {
+        this.favoriteCars = favoriteCars;
     }
 }

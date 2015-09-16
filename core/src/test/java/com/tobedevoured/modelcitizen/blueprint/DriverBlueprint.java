@@ -18,9 +18,16 @@ package com.tobedevoured.modelcitizen.blueprint;
  * limitations under the License.
  */
 
+import com.tobedevoured.modelcitizen.ModelFactory;
 import com.tobedevoured.modelcitizen.annotation.Blueprint;
 import com.tobedevoured.modelcitizen.annotation.Default;
+import com.tobedevoured.modelcitizen.annotation.Mapped;
+import com.tobedevoured.modelcitizen.annotation.MappedListByAliases;
+import com.tobedevoured.modelcitizen.model.Car;
 import com.tobedevoured.modelcitizen.model.Driver;
+import com.tobedevoured.modelcitizen.model.Option;
+
+import java.util.List;
 
 @Blueprint(Driver.class)
 public class DriverBlueprint {
@@ -30,5 +37,8 @@ public class DriverBlueprint {
 
     @Default
     public Integer age = 16;
+
+    @MappedListByAliases(target = Option.class, aliases = { "different", "different", ModelFactory.DEFAULT_BLUEPRINT_NAME})
+    public List<Option> favoriteCars;
 
 }

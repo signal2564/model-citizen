@@ -21,14 +21,13 @@ package com.tobedevoured.modelcitizen.modelfactory;
 import com.tobedevoured.modelcitizen.CreateModelException;
 import com.tobedevoured.modelcitizen.ModelFactory;
 import com.tobedevoured.modelcitizen.RegisterBlueprintException;
-import com.tobedevoured.modelcitizen.blueprint.*;
-import com.tobedevoured.modelcitizen.model.Car;
+import com.tobedevoured.modelcitizen.blueprint.CustomTemplate;
+import com.tobedevoured.modelcitizen.blueprint.OptionBlueprint;
+import com.tobedevoured.modelcitizen.blueprint.WheelBlueprint;
 import com.tobedevoured.modelcitizen.model.Wheel;
+import com.tobedevoured.modelcitizen.util.Pair;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.ArrayList;
-import java.util.HashSet;
 
 import static org.junit.Assert.assertEquals;
 
@@ -47,6 +46,6 @@ public class CustomTemplateTest {
 
     @Test
     public void customTemplate() throws RegisterBlueprintException, CreateModelException {
-      assertEquals( CustomTemplate.class, modelFactory.getErectors().get( Wheel.class ).getTemplate().getClass() );
+      assertEquals(CustomTemplate.class, modelFactory.getErectors().get(Pair.of(ModelFactory.DEFAULT_BLUEPRINT_NAME, (Class) Wheel.class)).getTemplate().getClass());
     }
 }

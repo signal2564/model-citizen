@@ -18,29 +18,27 @@ package com.tobedevoured.modelcitizen.modelfactory;
  * limitations under the License.
  */
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-
-
 import com.tobedevoured.modelcitizen.CreateModelException;
 import com.tobedevoured.modelcitizen.Erector;
 import com.tobedevoured.modelcitizen.ModelFactory;
 import com.tobedevoured.modelcitizen.RegisterBlueprintException;
 import com.tobedevoured.modelcitizen.blueprint.*;
 import com.tobedevoured.modelcitizen.field.ModelField;
+import com.tobedevoured.modelcitizen.model.Car;
+import com.tobedevoured.modelcitizen.model.Wheel;
 import com.tobedevoured.modelcitizen.template.BlueprintTemplateException;
+import com.tobedevoured.modelcitizen.util.Pair;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.tobedevoured.modelcitizen.model.Car;
-import com.tobedevoured.modelcitizen.model.Wheel;
+import static org.junit.Assert.assertEquals;
 
 public class ByClassTest {
 
     private ModelFactory modelFactory;
     private CarBlueprint carBlueprint = new CarBlueprint();
+    private CoolCarBlueprint coolCarBlueprint = new CoolCarBlueprint();
+    private BadCarBlueprint badCarBlueprint = new BadCarBlueprint();
     private WheelBlueprint wheelBlueprint = new WheelBlueprint();
     private DriverBlueprint driverBlueprint = new DriverBlueprint();
     private UserBlueprint userBlueprint = new UserBlueprint();
@@ -50,10 +48,13 @@ public class ByClassTest {
     public void setUp() throws RegisterBlueprintException {
         modelFactory = new ModelFactory();
         modelFactory.registerBlueprint(carBlueprint);
+        modelFactory.registerBlueprint("cool", coolCarBlueprint);
+        modelFactory.registerBlueprint(badCarBlueprint);
         modelFactory.registerBlueprint(wheelBlueprint);
         modelFactory.registerBlueprint(driverBlueprint);
         modelFactory.registerBlueprint(userBlueprint);
         modelFactory.registerBlueprint(optionBlueprint);
+        modelFactory.registerBlueprint("different", optionBlueprint);
     }
 
     @Test
@@ -75,7 +76,7 @@ public class ByClassTest {
     public void testBlueprintWithPrimitive() throws CreateModelException, BlueprintTemplateException {
         Car car = modelFactory.createModel(Car.class);
 
-        Erector erector = modelFactory.getErectors().get(Car.class);
+        Erector erector = modelFactory.getErectors().get(Pair.of(ModelFactory.DEFAULT_BLUEPRINT_NAME, (Class) Car.class));
 
         ModelField modelField = erector.getModelField("mileage");
         assertEquals(new Float(100.1), modelField.getValue());
@@ -86,5 +87,16 @@ public class ByClassTest {
 
         // Val is zero because primitive initializes as zero
         assertEquals(0.0, car.getMileage(), 0);
+    }
+
+    @Test
+    public void testRegisterBlueprintWithAliasCreateAliasSpecificObject() throws CreateModelException {
+        Car car = modelFactory.createModel(Car.class); // registered with default alias
+        Car coolCar = modelFactory.createModel("cool", Car.class); // registered with explicit alias
+        Car badCar = modelFactory.createModel("bad", Car.class); // registered with annotation alias
+
+        assertEquals("Default car make should match make from blueprint", car.getMake(), carBlueprint.make);
+        assertEquals("Cool car make should match make from blueprint", coolCar.getMake(), coolCarBlueprint.make);
+        assertEquals("Bad car make should match make from blueprint", badCar.getMake(), badCarBlueprint.make);
     }
 }

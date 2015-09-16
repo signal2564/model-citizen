@@ -41,6 +41,8 @@ public class AfterCreateCallbackTest {
         modelFactory.registerBlueprint(WheelBlueprint.class);
         modelFactory.registerBlueprint(OptionBlueprint.class);
         modelFactory.registerBlueprint(CarBlueprint.class);
+        modelFactory.registerBlueprint(OptionBlueprint.class);
+        modelFactory.registerBlueprint("different", OptionBlueprint.class);
     }
 
     @Test
